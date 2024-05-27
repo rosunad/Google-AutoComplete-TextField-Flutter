@@ -118,11 +118,12 @@ class _GooglePlaceAutoCompleteTextFieldState
     String url = "https://places.googleapis.com/v1/places:searchText";
 
     try {
+      debugPrint("API Key: ${widget.googleAPIKey}");
       final headers = {
         'Content-Type': 'application/json',
-        'X-Goog-Api-Key': widget.googleAPIKey,
+        'X-Goog-Api-Key': '${widget.googleAPIKey}',
         'X-Goog-FieldMask': widget.fieldMasks?.join(',') ??
-            'places.id,places.displayName,places.formatedAddress,places.location'
+            'places.id,places.displayName,places.adrFormatAddress,places.location'
       };
 
       final body = {'textQuery': text};
