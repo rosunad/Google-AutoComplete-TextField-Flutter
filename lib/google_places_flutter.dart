@@ -1,6 +1,7 @@
 library google_places_flutter;
 
 import 'package:flutter/material.dart';
+import 'package:google_places_flutter/model/place.dart';
 import 'package:google_places_flutter/model/place_details.dart';
 import 'package:google_places_flutter/model/prediction.dart';
 
@@ -61,6 +62,7 @@ class _GooglePlaceAutoCompleteTextFieldState
   final subject = new PublishSubject<String>();
   OverlayEntry? _overlayEntry;
   List<Prediction> alPredictions = [];
+  List<PlaceNew> alPlaces = [];
 
   TextEditingController controller = TextEditingController();
   final LayerLink _layerLink = LayerLink();
@@ -123,7 +125,7 @@ class _GooglePlaceAutoCompleteTextFieldState
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': '${widget.googleAPIKey}',
         'X-Goog-FieldMask': widget.fieldMasks?.join(',') ??
-            'places.id,places.displayName,places.adrFormatAddress,places.location'
+            'places.id,places.displayName,places.adrFormatAddress,places.location,places.addressComponents,places.formattedAddress,places.shortFormattedAddress'
       };
 
       final body = {'textQuery': text};
@@ -177,20 +179,41 @@ class _GooglePlaceAutoCompleteTextFieldState
       throw response.data;
     }
 
-    PlacesAutocompleteResponse subscriptionResponse =
-        PlacesAutocompleteResponse.fromJson(response.data);
+    if (!widget.useNewPlaceAPI) {
+      PlacesAutocompleteResponse subscriptionResponse =
+          PlacesAutocompleteResponse.fromJson(response.data);
 
-    if (text.length == 0) {
+      if (text.length == 0) {
+        alPredictions.clear();
+        this._overlayEntry!.remove();
+        return;
+      }
+
+      isSearched = false;
       alPredictions.clear();
-      this._overlayEntry!.remove();
-      return;
-    }
+      if (subscriptionResponse.predictions!.length > 0 &&
+          (widget.textEditingController.text.toString().trim()).isNotEmpty) {
+        alPredictions.addAll(subscriptionResponse.predictions!);
+      }
+    } else {
+      PlacesNewAutocompleteResponse newSubscriptionResponse =
+          PlacesNewAutocompleteResponse.fromJson(response.data);
 
-    isSearched = false;
-    alPredictions.clear();
-    if (subscriptionResponse.predictions!.length > 0 &&
-        (widget.textEditingController.text.toString().trim()).isNotEmpty) {
-      alPredictions.addAll(subscriptionResponse.predictions!);
+      if (text.length == 0) {
+        alPlaces.clear();
+        this._overlayEntry!.remove();
+        return;
+      }
+
+      isSearched = false;
+      alPlaces.clear();
+      if (newSubscriptionResponse.places!.length > 0 &&
+          (widget.textEditingController.text.toString().trim()).isNotEmpty) {
+        alPlaces.addAll(newSubscriptionResponse.places!);
+        alPlaces.forEach((element) {
+          alPredictions.add(parsePlaceNew(element));
+        });
+      }
     }
 
     this._overlayEntry = null;
@@ -323,6 +346,16 @@ class _GooglePlaceAutoCompleteTextFieldState
       ScaffoldMessenger.of(context).showSnackBar(snackBar);
     }
   }
+}
+
+Prediction parsePlaceNew(PlaceNew place) {
+  return Prediction(
+    id: place.placeId,
+    description: place.displayName,
+    lat: place.latitude,
+    lng: place.longitude,
+    placeId: place.placeId,
+  );
 }
 
 PlacesAutocompleteResponse parseResponse(Map responseBody) {
