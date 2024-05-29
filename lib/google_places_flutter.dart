@@ -128,11 +128,19 @@ class _GooglePlaceAutoCompleteTextFieldState
             'places.id,places.displayName,places.adrFormatAddress,places.location,places.addressComponents,places.formattedAddress,places.shortFormattedAddress'
       };
 
-      final body = {'textQuery': text};
+      if (this._overlayEntry != null) {
+        this._overlayEntry?.remove();
+        this._overlayEntry = null;
+      }
 
-      _processResponse(
-          await _dio.post(url, options: Options(headers: headers), data: body),
-          text);
+      if (text.length > 0) {
+        final body = {'textQuery': text};
+
+        _processResponse(
+            await _dio.post(url,
+                options: Options(headers: headers), data: body),
+            text);
+      }
     } catch (e) {
       var errorHandler = ErrorHandler.internal().handleError(e);
       _showSnackBar("${errorHandler.message}");
@@ -207,6 +215,7 @@ class _GooglePlaceAutoCompleteTextFieldState
 
       isSearched = false;
       alPlaces.clear();
+      alPredictions.clear();
       if (newSubscriptionResponse.places!.length > 0 &&
           (widget.textEditingController.text.toString().trim()).isNotEmpty) {
         alPlaces.addAll(newSubscriptionResponse.places!);
@@ -327,6 +336,7 @@ class _GooglePlaceAutoCompleteTextFieldState
     if (this._overlayEntry != null) {
       try {
         this._overlayEntry?.remove();
+        this._overlayEntry = null;
       } catch (e) {}
     }
   }
@@ -349,13 +359,44 @@ class _GooglePlaceAutoCompleteTextFieldState
 }
 
 Prediction parsePlaceNew(PlaceNew place) {
+  String? description = place.displayName ?? '';
+  String? street;
+  String? locality;
+  String? country;
+
+  if (place.addressComponents != null) {
+    street = getAddressComponentType(place.addressComponents!, "route");
+    locality = getAddressComponentType(place.addressComponents!, "locality");
+    country = getAddressComponentType(place.addressComponents!, "country");
+  }
+
+  if (street != null) {
+    description = description + ", $street";
+  }
+
+  if (locality != null) {
+    description = description + ", $locality";
+  }
+
+  if (country != null) {
+    description = description + ", $country";
+  }
+
   return Prediction(
-    id: place.placeId,
-    description: place.displayName,
-    lat: place.latitude,
-    lng: place.longitude,
-    placeId: place.placeId,
-  );
+      id: place.placeId,
+      lat: place.latitude,
+      lng: place.longitude,
+      placeId: place.placeId,
+      description: description);
+}
+
+String? getAddressComponentType(
+    List<AddressComponent> addressComponent, String type) {
+  return addressComponent
+          .where((ac) => ac.types?.first == type)
+          .firstOrNull
+          ?.shortText! ??
+      null;
 }
 
 PlacesAutocompleteResponse parseResponse(Map responseBody) {
