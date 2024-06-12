@@ -3,6 +3,7 @@ library google_places_flutter;
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:google_places_flutter/model/place.dart';
 import 'package:google_places_flutter/model/place_details.dart';
 import 'package:google_places_flutter/model/prediction.dart';
 
@@ -63,6 +64,7 @@ class _GooglePlaceAutoCompleteTextFieldState
   final subject = new PublishSubject<String>();
   OverlayEntry? _overlayEntry;
   List<Prediction> alPredictions = [];
+  List<PlaceNew> alPlaces = [];
 
   TextEditingController controller = TextEditingController();
   final LayerLink _layerLink = LayerLink();
@@ -120,18 +122,24 @@ class _GooglePlaceAutoCompleteTextFieldState
     String url = "https://places.googleapis.com/v1/places:searchText";
 
     try {
+      debugPrint("API Key: ${widget.googleAPIKey}");
       final headers = {
         'Content-Type': 'application/json',
-        'X-Goog-Api-Key': widget.googleAPIKey,
+        'X-Goog-Api-Key': '${widget.googleAPIKey}',
         'X-Goog-FieldMask': widget.fieldMasks?.join(',') ??
             'places.id,places.displayName,places.formattedAddress,places.location'
       };
 
       final body = jsonEncode({'textQuery': text});
 
-      _processResponse(
-          await _dio.post(url, options: Options(headers: headers), data: body),
-          text);
+      if (text.length > 0) {
+        final body = {'textQuery': text};
+
+        _processResponse(
+            await _dio.post(url,
+                options: Options(headers: headers), data: body),
+            text);
+      }
     } catch (e) {
       var errorHandler = ErrorHandler.internal().handleError(e);
       _showSnackBar("${errorHandler.message}");
@@ -178,20 +186,42 @@ class _GooglePlaceAutoCompleteTextFieldState
       throw response.data;
     }
 
-    PlacesAutocompleteResponse subscriptionResponse =
-        PlacesAutocompleteResponse.fromJson(response.data);
+    if (!widget.useNewPlaceAPI) {
+      PlacesAutocompleteResponse subscriptionResponse =
+          PlacesAutocompleteResponse.fromJson(response.data);
 
-    if (text.length == 0) {
+      if (text.length == 0) {
+        alPredictions.clear();
+        this._overlayEntry!.remove();
+        return;
+      }
+
+      isSearched = false;
       alPredictions.clear();
-      this._overlayEntry!.remove();
-      return;
-    }
+      if (subscriptionResponse.predictions!.length > 0 &&
+          (widget.textEditingController.text.toString().trim()).isNotEmpty) {
+        alPredictions.addAll(subscriptionResponse.predictions!);
+      }
+    } else {
+      PlacesNewAutocompleteResponse newSubscriptionResponse =
+          PlacesNewAutocompleteResponse.fromJson(response.data);
 
-    isSearched = false;
-    alPredictions.clear();
-    if (subscriptionResponse.predictions!.length > 0 &&
-        (widget.textEditingController.text.toString().trim()).isNotEmpty) {
-      alPredictions.addAll(subscriptionResponse.predictions!);
+      if (text.length == 0) {
+        alPlaces.clear();
+        this._overlayEntry!.remove();
+        return;
+      }
+
+      isSearched = false;
+      alPlaces.clear();
+      alPredictions.clear();
+      if (newSubscriptionResponse.places!.length > 0 &&
+          (widget.textEditingController.text.toString().trim()).isNotEmpty) {
+        alPlaces.addAll(newSubscriptionResponse.places!);
+        alPlaces.forEach((element) {
+          alPredictions.add(parsePlaceNew(element));
+        });
+      }
     }
 
     this._overlayEntry = null;
@@ -305,6 +335,7 @@ class _GooglePlaceAutoCompleteTextFieldState
     if (this._overlayEntry != null) {
       try {
         this._overlayEntry?.remove();
+        this._overlayEntry = null;
       } catch (e) {}
     }
   }
@@ -324,6 +355,47 @@ class _GooglePlaceAutoCompleteTextFieldState
       ScaffoldMessenger.of(context).showSnackBar(snackBar);
     }
   }
+}
+
+Prediction parsePlaceNew(PlaceNew place) {
+  String? description = place.displayName ?? '';
+  String? street;
+  String? locality;
+  String? country;
+
+  if (place.addressComponents != null) {
+    street = getAddressComponentType(place.addressComponents!, "route");
+    locality = getAddressComponentType(place.addressComponents!, "locality");
+    country = getAddressComponentType(place.addressComponents!, "country");
+  }
+
+  if (street != null) {
+    description = description + ", $street";
+  }
+
+  if (locality != null) {
+    description = description + ", $locality";
+  }
+
+  if (country != null) {
+    description = description + ", $country";
+  }
+
+  return Prediction(
+      id: place.placeId,
+      lat: place.latitude,
+      lng: place.longitude,
+      placeId: place.placeId,
+      description: description);
+}
+
+String? getAddressComponentType(
+    List<AddressComponent> addressComponent, String type) {
+  return addressComponent
+          .where((ac) => ac.types?.first == type)
+          .firstOrNull
+          ?.shortText! ??
+      null;
 }
 
 PlacesAutocompleteResponse parseResponse(Map responseBody) {
