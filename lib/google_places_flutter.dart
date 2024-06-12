@@ -1,5 +1,7 @@
 library google_places_flutter;
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:google_places_flutter/model/place_details.dart';
 import 'package:google_places_flutter/model/prediction.dart';
@@ -122,10 +124,10 @@ class _GooglePlaceAutoCompleteTextFieldState
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': widget.googleAPIKey,
         'X-Goog-FieldMask': widget.fieldMasks?.join(',') ??
-            'places.id,places.displayName,places.formatedAddress,places.location'
+            'places.id,places.displayName,places.formattedAddress,places.location'
       };
 
-      final body = {'textQuery': text};
+      final body = jsonEncode({'textQuery': text});
 
       _processResponse(
           await _dio.post(url, options: Options(headers: headers), data: body),
