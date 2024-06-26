@@ -19,6 +19,7 @@ class PlaceNew {
   String? latitude;
   String? longitude;
   String? adrFormatAddress;
+  String? formattedAddress;
   String? displayName;
   String? languageCode;
   List<AddressComponent>? addressComponents;
@@ -29,6 +30,7 @@ class PlaceNew {
       this.latitude,
       this.longitude,
       this.adrFormatAddress,
+      this.formattedAddress,
       this.displayName,
       this.languageCode,
       this.addressComponents,
@@ -39,6 +41,7 @@ class PlaceNew {
     latitude = json['location']?['latitude'].toString() ?? '';
     longitude = json['location']?['longitude'].toString() ?? '';
     adrFormatAddress = json['adrFormatAddress'] ?? '';
+    formattedAddress = json['formattedAddress'];
     displayName = json['displayName']['text'] ?? '';
     languageCode = json['displayName']['languageCode'] ?? '';
     shotFormattedAddress = json['shortFormattedAddress'] ?? '';

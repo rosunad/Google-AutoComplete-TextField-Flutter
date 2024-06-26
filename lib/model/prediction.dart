@@ -30,6 +30,7 @@ class Prediction {
   List<MatchedSubstrings>? matchedSubstrings;
   String? placeId;
   String? reference;
+  String? formattedAddress;
   StructuredFormatting? structuredFormatting;
   List<Terms>? terms;
   List<String>? types;
@@ -43,6 +44,7 @@ class Prediction {
       this.placeId,
       this.reference,
       this.structuredFormatting,
+      this.formattedAddress,
       this.terms,
       this.types,
       this.lat,
@@ -59,6 +61,7 @@ class Prediction {
     }
     placeId = json['place_id'];
     reference = json['reference'];
+    formattedAddress = json['formattedAddress'];
     structuredFormatting = json['structured_formatting'] != null
         ? new StructuredFormatting.fromJson(json['structured_formatting'])
         : null;
